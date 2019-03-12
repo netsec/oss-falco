@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # Copyright (C) 2016-2018 Draios Inc dba Sysdig.
 #
@@ -15,17 +16,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-- list: cat_binaries
-  items: [cat]
 
-- macro: is_cat
-  condition: proc.name in (not_cat)
+#set -e
 
-- macro: is_cat
-  condition: proc.name in (cat_binaries)
+# Set the SYSDIG_SKIP_LOAD variable to skip loading the sysdig kernel module
 
-- rule: open_from_cat
-  desc: A process named cat does an open
-  condition: evt.type=open and is_cat
-  output: "An open was seen (command=%proc.cmdline)"
-  priority: WARNING
+if [[ -z "${SYSDIG_SKIP_LOAD}" ]]; then
+    echo "* Setting up /usr/src links from host"
+
+    for i in $(ls $SYSDIG_HOST_ROOT/usr/src)
+    do
+        ln -s $SYSDIG_HOST_ROOT/usr/src/$i /usr/src/$i
+    done
+
+    /usr/bin/falco-probe-loader
+fi
+
+exec "$@"
