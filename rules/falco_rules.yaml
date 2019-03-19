@@ -619,6 +619,9 @@
 - macro: liveupdate_writing_conf
   condition: (proc.cmdline startswith "java LiveUpdate" and fd.name in (/etc/liveupdate.conf, /etc/Product.Catalog.JavaLiveUpdate))
 
+- macro: rancher_agent
+  condition: (proc.name = agent and container.image.repository = rancher/agent)
+
 - macro: sosreport_writing_files
   condition: >
     (proc.name=urlgrabber-ext- and proc.aname[3]=sosreport and
@@ -817,6 +820,13 @@
                proc.cmdline startswith "agent.py /opt/datadog-agent")
               and fd.name startswith "/etc/dd-agent")
 
+- macro: rancher_writing_conf
+  condition: (container.image.repository in (rancher_images)
+              and proc.name in (lib-controller,rancher-dns,healthcheck,rancher-metadat)
+              and (fd.name startswith "/etc/haproxy" or 
+                   fd.name startswith "/etc/rancher-dns")
+             )
+
 - macro: curl_writing_pki_db
   condition: (proc.name=curl and fd.directory=/etc/pki/nssdb)
 
@@ -909,7 +919,7 @@
                           gen_resolvconf., update-ca-certi, certbot, runsv,
                           qualys-cloud-ag, locales.postins, nomachine_binaries,
                           adclient, certutil, crlutil, pam-auth-update, parallels_insta,
-                          openshift-launc, update-rc.d)
+                          openshift-launc, update-rc.d, puppet)
     and not proc.pname in (sysdigcloud_binaries, mail_config_binaries, hddtemp.postins, sshkit_script_binaries, locales.postins, deb_binaries, dhcp_binaries)
     and not fd.name pmatch (safe_etc_dirs)
     and not fd.name in (/etc/container_environment.sh, /etc/container_environment.json, /etc/motd, /etc/motd.svc)
@@ -985,6 +995,7 @@
     and not calico_writing_conf
     and not prometheus_conf_writing_conf
     and not openshift_writing_conf
+    and not rancher_writing_conf
 
 - rule: Write below etc
   desc: an attempt to write to any file below /etc
@@ -1038,6 +1049,16 @@
               or fd.name startswith /root/jvm
               or fd.name startswith /root/.node-gyp)
 
+# Add conditions to this macro (probably in a separate file,
+# overwriting this macro) to allow for specific combinations of
+# programs writing below specific directories below
+# / or /root.
+#
+# In this file, it just takes one of the condition in the base macro
+# and repeats it.
+- macro: user_known_write_root_conditions
+  condition: fd.name=/root/.bash_history
+
 - rule: Write below root
   desc: an attempt to write to any file directly below / or /root
   condition: >
@@ -1055,6 +1076,7 @@
     and not kubectl_writing_state
     and not cassandra_writing_state
     and not known_root_conditions
+    and not user_known_write_root_conditions
   output: "File below / or /root opened for writing (user=%user.name command=%proc.cmdline parent=%proc.pname file=%fd.name program=%proc.name)"
   priority: ERROR
   tags: [filesystem]
@@ -1126,7 +1148,12 @@
 # Only let rpm-related programs write to the rpm database
 - rule: Write below rpm database
   desc: an attempt to write to the rpm database by any non-rpm related program
-  condition: fd.name startswith /var/lib/rpm and open_write and not rpm_procs and not ansible_running_python and not python_running_chef
+  condition: >
+    fd.name startswith /var/lib/rpm and open_write
+    and not rpm_procs
+    and not ansible_running_python
+    and not python_running_chef
+    and not exe_running_docker_save
   output: "Rpm database opened for writing by a non-rpm program (command=%proc.cmdline file=%fd.name parent=%proc.pname pcmdline=%proc.pcmdline)"
   priority: ERROR
   tags: [filesystem, software_mgmt]
@@ -1203,6 +1230,7 @@
     and not python_running_sdchecks
     and not java_running_sdjagent
     and not kubelet_running_loopback
+    and not rancher_agent
   output: >
     Namespace change (setns) by unexpected program (user=%user.name command=%proc.cmdline
     parent=%proc.pname %container.info)
@@ -1394,6 +1422,12 @@
               container.image.repository in (trusted_images) or
               container.image.repository startswith istio/proxy_ or
               container.image.repository startswith quay.io/sysdig)
+
+- list: rancher_images
+  items: [
+    rancher/network-manager, rancher/dns, rancher/agent, 
+    rancher/lb-service-haproxy, rancher/metadata, rancher/healthcheck
+  ]
 
 # Add conditions to this macro (probably in a separate file,
 # overwriting this macro) to specify additional containers that are
@@ -1652,6 +1686,15 @@
 - macro: known_user_in_container
   condition: (container and user.name != "N/A")
 
+# Add conditions to this macro (probably in a separate file,
+# overwriting this macro) to allow for specific combinations of
+# programs changing users by calling setuid.
+#
+# In this file, it just takes one of the condition in the base macro
+# and repeats it.
+- macro: user_known_non_sudo_setuid_conditions
+  condition: user.name=root
+
 # sshd, mail programs attempt to setuid to root even when running as non-root. Excluding here to avoid meaningless FPs
 - rule: Non sudo setuid
   desc: >
@@ -1660,11 +1703,13 @@
   condition: >
     evt.type=setuid and evt.dir=>
     and (known_user_in_container or not container)
-    and not user.name=root and not somebody_becoming_themself
+    and not user.name=root
+    and not somebody_becoming_themself
     and not proc.name in (known_setuid_binaries, userexec_binaries, mail_binaries, docker_binaries,
                           nomachine_binaries)
     and not java_running_sdjagent
     and not nrpe_becoming_nagios
+    and not user_known_non_sudo_setuid_conditions
   output: >
     Unexpected setuid call by non-sudo, non-root program (user=%user.name cur_uid=%user.uid parent=%proc.pname
     command=%proc.cmdline uid=%evt.arg.uid)
