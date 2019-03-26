@@ -24,7 +24,7 @@ include_directories("${NJSON_INCLUDE}")
 include_directories("${CURL_INCLUDE_DIR}")
 include_directories("${TBB_INCLUDE_DIR}")
 
-add_library(falco_engine STATIC
+list(APPEND falco_engine_files
 	rules.cpp
 	falco_common.cpp
 	falco_engine.cpp
@@ -33,16 +33,27 @@ add_library(falco_engine STATIC
 	token_bucket.cpp
 	formats.cpp)
 
-target_include_directories(falco_engine PUBLIC
+list(APPEND falco_engine_include_directories
 	"${LUAJIT_INCLUDE}"
 	"${NJSON_INCLUDE}"
 	"${PROJECT_BINARY_DIR}/userspace/engine")
 
-target_link_libraries(falco_engine
-  "${FALCO_SINSP_LIBRARY}"
+list(APPEND falco_engine_link_libraries
   "${LPEG_LIB}"
   "${LYAML_LIB}"
   "${LIBYAML_LIB}")
+
+# Create the production library
+add_library(falco_engine STATIC ${falco_engine_files})
+target_include_directories(falco_engine PUBLIC ${falco_engine_include_directories})
+target_link_libraries(falco_engine "${FALCO_SINSP_LIBRARY}" ${falco_engine_link_libraries})
+
+if(BUILD_FOR_TEST)
+	# Create the test library with the test version of sinsp
+	add_library(falco_engine.test STATIC ${falco_engine_files})
+	target_include_directories(falco_engine.test PUBLIC ${falco_engine_include_directories})
+	target_link_libraries(falco_engine.test "${FALCO_SINSP_TEST_LIBRARY}" ${falco_engine_link_libraries})
+endif()
 
 configure_file(config_falco_engine.h.in config_falco_engine.h)
 
