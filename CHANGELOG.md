@@ -2,6 +2,92 @@
 
 This file documents all notable changes to Falco. The release numbering uses [semantic versioning](http://semver.org).
 
+## v0.15.3
+
+Released 2019-06-12
+
+## Major Changes
+
+* None.
+
+## Minor Changes
+
+* None.
+
+## Bug Fixes
+
+* Fix kernel module compilation for kernels < 3.11 [[#sysdig/1436](https://github.com/draios/sysdig/pull/1436)]
+
+## Rule Changes
+
+* None.
+
+## v0.15.2
+
+Released 2019-06-12
+
+## Major Changes
+
+* New documentation and process handling around issues and pull requests. [[#644](https://github.com/falcosecurity/falco/pull/644)] [[#659](https://github.com/falcosecurity/falco/pull/659)] [[#664](https://github.com/falcosecurity/falco/pull/664)] [[#665](https://github.com/falcosecurity/falco/pull/665)]
+
+## Minor Changes
+
+* None.
+
+## Bug Fixes
+
+* Fix compilation of eBPF programs on COS (used by GKE) [[#sysdig/1431](https://github.com/draios/sysdig/pull/1431)]
+
+## Rule Changes
+
+* Rework exceptions lists for `Create Privileged Pod`, `Create Sensitive Mount Pod`, `Launch Sensitive Mount Container`, `Launch Privileged Container` rules to use separate specific lists rather than a single "Trusted Containers" list. [[#651](https://github.com/falcosecurity/falco/pull/651)]
+
+## v0.15.1
+
+Released 2019-06-07
+
+## Major Changes
+
+* Drop unnecessary events at the kernel level instead of userspace, which should improve performance [[#635](https://github.com/falcosecurity/falco/pull/635)]
+
+## Minor Changes
+
+* Add instructions for k8s audit support in >= 1.13 [[#608](https://github.com/falcosecurity/falco/pull/608)]
+
+* Fix security issues reported by GitHub on Anchore integration [[#592](https://github.com/falcosecurity/falco/pull/592)]
+
+* Several docs/readme improvements [[#620](https://github.com/falcosecurity/falco/pull/620)] [[#616](https://github.com/falcosecurity/falco/pull/616)] [[#631](https://github.com/falcosecurity/falco/pull/631)] [[#639](https://github.com/falcosecurity/falco/pull/639)] [[#642](https://github.com/falcosecurity/falco/pull/642)]
+
+* Better tracking of rule counts per ruleset [[#645](https://github.com/falcosecurity/falco/pull/645)]
+
+## Bug Fixes
+
+* Handle rule patterns that are invalid regexes [[#636](https://github.com/falcosecurity/falco/pull/636)]
+
+* Fix kernel module builds on newer kernels [[#646](https://github.com/falcosecurity/falco/pull/646)] [[#sysdig/1413](https://github.com/draios/sysdig/pull/1413)]
+
+## Rule Changes
+
+* New rule `Launch Remote File Copy Tools in Container` could be used to identify exfiltration attacks [[#600](https://github.com/falcosecurity/falco/pull/600)]
+
+* New rule `Create Symlink Over Sensitive Files` can help detect attacks like [[CVE-2018-15664](https://nvd.nist.gov/vuln/detail/CVE-2018-15664)] [[#613](https://github.com/falcosecurity/falco/pull/613)] [[#637](https://github.com/falcosecurity/falco/pull/637)]
+
+* Let etcd-manager write to /etc/hosts. [[#613](https://github.com/falcosecurity/falco/pull/613)]
+
+* Let additional processes spawned by google-accounts-daemon access sensitive files [[#593](https://github.com/falcosecurity/falco/pull/593)]
+
+* Add Sematext Monitoring & Logging agents to trusted k8s containers [[#594](https://github.com/falcosecurity/falco/pull/594/)]
+
+* Add additional coverage for `Netcat Remote Code Execution in Container` rule. [[#617](https://github.com/falcosecurity/falco/pull/617/)]
+
+* Fix `egrep` typo. [[#617](https://github.com/falcosecurity/falco/pull/617/)]
+
+* Allow Ansible to run using Python 3 [[#625](https://github.com/falcosecurity/falco/pull/625/)]
+
+* Additional `Write below etc` exceptions for nginx, rancher [[#637](https://github.com/falcosecurity/falco/pull/637)] [[#648](https://github.com/falcosecurity/falco/pull/648)] [[#652](https://github.com/falcosecurity/falco/pull/652)]
+
+* Add rules for running with IBM Cloud Kubernetes Service [[#634](https://github.com/falcosecurity/falco/pull/634)]
+
 ## v0.15.0
 
 Released 2019-05-13
