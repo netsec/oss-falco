@@ -311,13 +311,17 @@
      (fd.ip != "0.0.0.0" and fd.net != "127.0.0.0/8") and
      (evt.rawres >= 0 or evt.res = EINPROGRESS))
 
+# RFC1918 addresses were assigned for private network usage
+- list: rfc_1918_addresses
+  items: ['"10.0.0.0/8"', '"172.16.0.0/12"', '"192.168.0.0/16"']
+
 - macro: outbound
   condition: >
     (((evt.type = connect and evt.dir=<) or
       (evt.type in (sendto,sendmsg) and evt.dir=< and
        fd.l4proto != tcp and fd.connected=false and fd.name_changed=true)) and
      (fd.typechar = 4 or fd.typechar = 6) and
-     (fd.ip != "0.0.0.0" and fd.net != "127.0.0.0/8") and
+     (fd.ip != "0.0.0.0" and fd.net != "127.0.0.0/8" and not fd.snet in (rfc_1918_addresses)) and
      (evt.rawres >= 0 or evt.res = EINPROGRESS))
 
 # Very similar to inbound/outbound, but combines the tests together
@@ -1148,6 +1152,10 @@
 - macro: user_known_write_etc_conditions
   condition: proc.name=confd
 
+# This is a placeholder for user to extend the whitelist for write below etc rule
+- macro: user_known_write_below_etc_activities
+  condition: (never_true)
+
 - macro: write_etc_common
   condition: >
     etc_dir and evt.dir = < and open_write
@@ -1245,6 +1253,7 @@
     and not checkpoint_writing_state
     and not jboss_in_container_writing_passwd
     and not etcd_manager_updating_dns
+    and not user_known_write_below_etc_activities
 
 - rule: Write below etc
   desc: an attempt to write to any file below /etc
@@ -1308,6 +1317,10 @@
 - macro: user_known_write_root_conditions
   condition: fd.name=/root/.bash_history
 
+# This is a placeholder for user to extend the whitelist for write below root rule
+- macro: user_known_write_below_root_activities
+  condition: (never_true)
+
 - rule: Write below root
   desc: an attempt to write to any file directly below / or /root
   condition: >
@@ -1329,6 +1342,7 @@
     and not rancher_writing_root
     and not known_root_conditions
     and not user_known_write_root_conditions
+    and not user_known_write_below_root_activities
   output: "File below / or /root opened for writing (user=%user.name command=%proc.cmdline parent=%proc.pname file=%fd.name program=%proc.name container_id=%container.id image=%container.image.repository)"
   priority: ERROR
   tags: [filesystem, mitre_persistence]
@@ -1470,11 +1484,17 @@
 - list: user_known_change_thread_namespace_binaries
   items: []
 
+- macro: user_known_change_thread_namespace_activities
+  condition: (never_true)
+
 - list: network_plugin_binaries
   items: [aws-cni, azure-vnet]
 
 - macro: calico_node
   condition: (container.image.repository endswith calico/node and proc.name=calico-node)
+
+- macro: weaveworks_scope
+  condition: (container.image.repository endswith weaveworks/scope and proc.name=scope)
 
 - rule: Change thread namespace
   desc: >
@@ -1494,6 +1514,8 @@
     and not rancher_agent
     and not rancher_network_manager
     and not calico_node
+    and not weaveworks_scope
+    and not user_known_change_thread_namespace_activities
   output: >
     Namespace change (setns) by unexpected program (user=%user.name command=%proc.cmdline
     parent=%proc.pname %container.info container_id=%container.id image=%container.image.repository)
@@ -1672,6 +1694,7 @@
        container.image.repository endswith /ose-pod or
        container.image.repository endswith /ose-node or
        container.image.repository endswith /ose-docker-registry or
+       container.image.repository endswith /prometheus-node-exporter or
        container.image.repository endswith /image-inspector))
 
 # These images are allowed both to run with --privileged and to mount
@@ -1703,7 +1726,7 @@
 # In this file, it just takes one of the images in trusted_containers
 # and repeats it.
 - macro: user_trusted_containers
-  condition: (container.image.repository = docker.io/sysdig/agent)
+  condition: (container.image.repository endswith sysdig/agent)
 
 - list: sematext_images
   items: [docker.io/sematext/sematext-agent-docker, docker.io/sematext/agent, docker.io/sematext/logagent,
@@ -1735,7 +1758,7 @@
 # In this file, it just takes one of the images in falco_privileged_images
 # and repeats it.
 - macro: user_privileged_containers
-  condition: (container.image.repository = docker.io/sysdig/agent)
+  condition: (container.image.repository endswith sysdig/agent)
 
 - list: rancher_images
   items: [
